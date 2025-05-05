@@ -12,12 +12,26 @@ from utils.env_manager import env_manager
 
 
 def pytest_addoption(parser):
-    """Add command-line options for environment selection"""
+    """Add command-line options for environment and browser selection"""
     parser.addoption(
         "--env", 
         action="store", 
         default="DEV", 
         help="Environment to run tests against: DEV, SYS, QA"
+    )
+    
+    parser.addoption(
+        "--browser-type", 
+        action="store", 
+        default="chromium", 
+        help="Browser to use for UI tests: chromium, firefox, webkit"
+    )
+    
+    parser.addoption(
+        "--mobile-device", 
+        action="store", 
+        default="", 
+        help=f"Mobile device to emulate: {', '.join(Config.get_supported_devices())}"
     )
 
 
@@ -28,10 +42,28 @@ def pytest_configure(config):
     if env not in ["DEV", "SYS", "QA"]:
         raise ValueError(f"Invalid environment: {env}. Must be one of: DEV, SYS, QA")
     
+    # Set browser type
+    browser_type = config.getoption("--browser-type").lower()
+    if browser_type not in Config.get_supported_browsers():
+        raise ValueError(f"Invalid browser type: {browser_type}. Must be one of: {', '.join(Config.get_supported_browsers())}")
+    
+    # Set device if specified
+    device_name = config.getoption("--mobile-device")
+    if device_name and device_name not in Config.get_supported_devices():
+        raise ValueError(f"Invalid device name: {device_name}. Must be one of: {', '.join(Config.get_supported_devices())}")
+    
+    # Update environment variables
+    os.environ["BROWSER_TYPE"] = browser_type
+    os.environ["DEVICE_NAME"] = device_name
+    
     env_manager.set_environment(env)
     
     # Print environment info for debugging
-    print(f"\nRunning tests against {env} environment: {Config.get_environment_url()}\n")
+    print(f"\nRunning tests against {env} environment: {Config.get_environment_url()}")
+    print(f"Browser: {browser_type}")
+    if device_name:
+        print(f"Device: {device_name}")
+    print("\n")
 
 
 @pytest.fixture(scope="session")
@@ -51,11 +83,11 @@ def browser() -> Generator[Browser, Any, None]:
 
 @pytest.fixture
 def context(browser: Browser) -> Generator[BrowserContext, Any, None]:
-    """Create a browser context for each test."""
-    created_context = browser.new_context(
-        viewport=Config.VIEWPORT,
-        record_video_dir="reports/videos" if Config.VIDEO_RECORDING else None
-    )
+    """Create a browser context for each test with device emulation if specified."""
+    # Get context options including device emulation settings
+    context_options = Config.get_context_options()
+    
+    created_context = browser.new_context(**context_options)
     yield created_context
     created_context.close()
 

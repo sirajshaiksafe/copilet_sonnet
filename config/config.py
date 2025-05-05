@@ -1,9 +1,9 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 class Config:
     # Environment configuration
-    ENV = os.getenv('ENV', 'SYS').upper()  # Default to QA if not specified
+    ENV = os.getenv('ENV', 'SYS').upper()  # Default to SYS if not specified
 
     # Environment URLs
     ENVIRONMENT_URLS = {
@@ -22,6 +22,36 @@ class Config:
     BROWSER_TYPE = os.getenv('BROWSER_TYPE', 'chromium')  # chromium, firefox, or webkit
     HEADLESS = os.getenv('HEADLESS', 'True').lower() == 'true'
     SLOW_MO = int(os.getenv('SLOW_MO', '0'))
+    
+    # Device configuration
+    DEVICE_NAME = os.getenv('DEVICE_NAME', '')  # Empty string means no device emulation
+    
+    # Predefined device configurations
+    DEVICES = {
+        'pixel_5': {
+            'user_agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.104 Mobile Safari/537.36',
+            'viewport': {'width': 393, 'height': 851},
+            'device_scale_factor': 2.75,
+            'is_mobile': True,
+            'has_touch': True
+        },
+        'iphone_12': {
+            'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+            'viewport': {'width': 390, 'height': 844},
+            'device_scale_factor': 3,
+            'is_mobile': True,
+            'has_touch': True
+        },
+        'galaxy_tab_s7': {
+            'user_agent': 'Mozilla/5.0 (Linux; Android 11; SM-T870) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.104 Safari/537.36',
+            'viewport': {'width': 753, 'height': 1193},
+            'device_scale_factor': 2,
+            'is_mobile': True,
+            'has_touch': True
+        }
+    }
+    
+    # Standard viewport for desktop testing
     VIEWPORT = {'width': 1920, 'height': 1080}
 
     # Test configuration
@@ -49,6 +79,23 @@ class Config:
             'headless': Config.HEADLESS,
             'slow_mo': Config.SLOW_MO
         }
+        
+    @staticmethod
+    def get_context_options() -> Dict[str, Any]:
+        """Return context options including device emulation if specified"""
+        options = {}
+        
+        # Set device emulation if specified
+        if Config.DEVICE_NAME and Config.DEVICE_NAME in Config.DEVICES:
+            options.update(Config.DEVICES[Config.DEVICE_NAME])
+        else:
+            options['viewport'] = Config.VIEWPORT
+            
+        # Add record video configuration if enabled
+        if Config.VIDEO_RECORDING:
+            options['record_video_dir'] = "reports/videos"
+            
+        return options
 
     @classmethod
     def get_mock_server_url(cls) -> str:
@@ -65,3 +112,13 @@ class Config:
         """Return the URL for the specified environment or current environment if none specified"""
         env = env or cls.ENV
         return cls.ENVIRONMENT_URLS.get(env.upper())
+
+    @classmethod
+    def get_supported_browsers(cls) -> List[str]:
+        """Return list of supported browser types"""
+        return ["chromium", "firefox", "webkit"]
+        
+    @classmethod
+    def get_supported_devices(cls) -> List[str]:
+        """Return list of supported mobile device emulations"""
+        return list(cls.DEVICES.keys())
