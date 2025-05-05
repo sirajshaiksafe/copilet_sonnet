@@ -1,0 +1,78 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+pytest-report.html
+
+# Test output and reports
+reports/screenshots/**
+reports/videos/
+reports/allure-results/
+reports/report.html
+allure-report/
+!reports/screenshots/.gitkeep
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Test specific files
+diff_images/**/
+!diff_images/.gitkeep
+!diff_images/dev/.gitkeep
+!diff_images/qa/.gitkeep
+!diff_images/sys/.gitkeep
+
+# Playwright artifacts
+test-results/
+playwright-report/
+**/blob-report/
+**/test-results/
+playwright/.cache/
+
+# Node modules (if any are used in the project)
+node_modules/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Local test data
+test_data/**/
+!test_data/.gitkeep
+!test_data/dev/.gitkeep
+!test_data/qa/.gitkeep
+!test_data/sys/.gitkeep
+
+# Keep directory structure
+!.gitkeep
