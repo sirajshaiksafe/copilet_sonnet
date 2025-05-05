@@ -9,6 +9,7 @@ from config.config import Config
 from utils.api_client import API
 from mocks.mock_server import MockServer
 from utils.env_manager import env_manager
+from utils.test_matrix import get_active_matrix
 
 
 def pytest_addoption(parser):
@@ -33,6 +34,13 @@ def pytest_addoption(parser):
         default="", 
         help=f"Mobile device to emulate: {', '.join(Config.get_supported_devices())}"
     )
+    
+    parser.addoption(
+        "--matrix", 
+        action="store_true", 
+        default=False,
+        help="Run tests on all active browser/device combinations defined in test matrix"
+    )
 
 
 def pytest_configure(config):
@@ -42,33 +50,79 @@ def pytest_configure(config):
     if env not in ["DEV", "SYS", "QA"]:
         raise ValueError(f"Invalid environment: {env}. Must be one of: DEV, SYS, QA")
     
-    # Set browser type
-    browser_type = config.getoption("--browser-type").lower()
-    if browser_type not in Config.get_supported_browsers():
-        raise ValueError(f"Invalid browser type: {browser_type}. Must be one of: {', '.join(Config.get_supported_browsers())}")
-    
-    # Set device if specified
-    device_name = config.getoption("--mobile-device")
-    if device_name and device_name not in Config.get_supported_devices():
-        raise ValueError(f"Invalid device name: {device_name}. Must be one of: {', '.join(Config.get_supported_devices())}")
-    
-    # Update environment variables
-    os.environ["BROWSER_TYPE"] = browser_type
-    os.environ["DEVICE_NAME"] = device_name
-    
     env_manager.set_environment(env)
     
-    # Print environment info for debugging
-    print(f"\nRunning tests against {env} environment: {Config.get_environment_url()}")
-    print(f"Browser: {browser_type}")
-    if device_name:
-        print(f"Device: {device_name}")
-    print("\n")
+    # When not using matrix, set browser and device from command line
+    if not config.getoption("--matrix"):
+        # Set browser type
+        browser_type = config.getoption("--browser-type").lower()
+        if browser_type not in Config.get_supported_browsers():
+            raise ValueError(f"Invalid browser type: {browser_type}. Must be one of: {', '.join(Config.get_supported_browsers())}")
+        
+        # Set device if specified
+        device_name = config.getoption("--mobile-device")
+        if device_name and device_name not in Config.get_supported_devices():
+            raise ValueError(f"Invalid device name: {device_name}. Must be one of: {', '.join(Config.get_supported_devices())}")
+        
+        # Update environment variables
+        os.environ["BROWSER_TYPE"] = browser_type
+        os.environ["DEVICE_NAME"] = device_name
+        
+        # Print environment info for debugging
+        print(f"\nRunning tests against {env} environment: {Config.get_environment_url()}")
+        print(f"Browser: {browser_type}")
+        if device_name:
+            print(f"Device: {device_name}")
+        print("\n")
 
 
-@pytest.fixture(scope="session")
-def browser() -> Generator[Browser, Any, None]:
-    """Create a browser instance for the test session."""
+def pytest_generate_tests(metafunc):
+    """
+    Generate tests for each browser/device combination in the active matrix
+    when --matrix flag is used
+    """
+    # Only apply matrix if the flag is set
+    if metafunc.config.getoption("--matrix"):
+        # Get active matrix combinations
+        active_matrix = get_active_matrix()
+        
+        # Parametrize all tests with browser_device_combo
+        metafunc.parametrize(
+            "browser_device_combo", 
+            active_matrix,
+            ids=[combo["name"] for combo in active_matrix],
+            scope="function"
+        )
+
+
+@pytest.fixture(scope="function")
+def browser_device_combo(request):
+    """
+    Default fixture for non-matrix test runs.
+    When not using --matrix, this fixture provides a default combination
+    """
+    if not request.config.getoption("--matrix"):
+        return {
+            "name": "default",
+            "browser_type": request.config.getoption("--browser-type"),
+            "mobile_device": request.config.getoption("--mobile-device")
+        }
+    # For matrix runs, this fixture will be parametrized by pytest_generate_tests
+    return request.param
+
+
+@pytest.fixture(scope="function")
+def browser(browser_device_combo) -> Generator[Browser, Any, None]:
+    """Create a browser instance for the test."""
+    # Set environment variables from the combo
+    os.environ["BROWSER_TYPE"] = browser_device_combo["browser_type"]
+    os.environ["DEVICE_NAME"] = browser_device_combo["mobile_device"]
+    
+    # Reload config to pick up the new environment variables
+    import importlib
+    from config import config
+    importlib.reload(config)
+    
     with sync_playwright() as playwright:
         if Config.BROWSER_TYPE == "chromium":
             created_browser = playwright.chromium.launch(**Config.get_browser_config())
@@ -78,8 +132,16 @@ def browser() -> Generator[Browser, Any, None]:
             created_browser = playwright.webkit.launch(**Config.get_browser_config())
         else:
             raise ValueError(f"Unsupported browser type: {Config.BROWSER_TYPE}")
+            
+        test_id = f"{browser_device_combo['name']} [{Config.BROWSER_TYPE}"
+        if Config.DEVICE_NAME:
+            test_id += f", {Config.DEVICE_NAME}"
+        test_id += "]"
+        print(f"\nStarting test with: {test_id}")
+        
         yield created_browser
         created_browser.close()
+
 
 @pytest.fixture
 def context(browser: Browser) -> Generator[BrowserContext, Any, None]:
