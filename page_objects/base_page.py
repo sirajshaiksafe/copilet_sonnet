@@ -11,11 +11,11 @@ class BasePage:
         self.logger = logging.getLogger(__name__)
 
     def navigate(self, url: str) -> None:
-        self.logger.info(f"Navigating to {url}")
+        self.logger.info("Navigating to %s", url)
         self.page.goto(url)
 
     def wait_for_element(self, selector: str, timeout: Optional[int] = None) -> None:
-        self.logger.info(f"Waiting for element {selector}")
+        self.logger.info("Waiting for element %s", selector)
         self.page.wait_for_selector(selector, timeout=timeout or self.timeout)
 
     def click(self, selector: str) -> None:

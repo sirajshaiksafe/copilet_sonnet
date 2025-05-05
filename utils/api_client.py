@@ -6,7 +6,7 @@ from config.config import Config
 
 logger = logging.getLogger(__name__)
 
-class ApiClient:
+class API:
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = base_url or Config.API_BASE_URL
         self.session = requests.Session()

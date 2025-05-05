@@ -1,13 +1,15 @@
-import pytest
-from typing import Generator, Any
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
-from config.config import Config
 import os
 from datetime import datetime
-from utils.api_client import APIClient
+from typing import Generator, Any
 import asyncio
-from mocks.mock_server import MockServer
 import warnings
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+import pytest
+from config.config import Config
+from utils.api_client import API
+from mocks.mock_server import MockServer
+
+
 
 @pytest.fixture(scope="session")
 def browser_fixture() -> Generator[Browser, Any, None]:
@@ -46,7 +48,7 @@ def page_fixture(context: BrowserContext) -> Generator[Page, Any, None]:
 async def mock_server_fixture():
     """Setup mock server with UI and API endpoints."""
     server = await MockServer.create(host=Config.MOCK_SERVER_HOST, port=Config.MOCK_SERVER_PORT)
-    
+
     # Mock UI pages
     server.add_mock(
         'GET',
@@ -63,7 +65,7 @@ async def mock_server_fixture():
         },
         headers={'Content-Type': 'text/html'}
     )
-    
+
     server.add_mock(
         'GET',
         '/login',
@@ -84,7 +86,7 @@ async def mock_server_fixture():
         },
         headers={'Content-Type': 'text/html'}
     )
-    
+
     server.add_mock(
         'GET',
         '/dashboard',
@@ -100,7 +102,7 @@ async def mock_server_fixture():
         },
         headers={'Content-Type': 'text/html'}
     )
-    
+
     # Mock API endpoints for successful login
     server.add_mock(
         'POST',
@@ -114,15 +116,15 @@ async def mock_server_fixture():
             }
         }
     )
-    
+
     yield server
     # Clean up
     await asyncio.sleep(0.1)  # Allow pending tasks to complete
 
 @pytest.fixture
-def api_client() -> APIClient:
+def api_client() -> API:
     """Create an API client instance."""
-    return APIClient(base_url=Config.get_mock_server_url())
+    return API(base_url=Config.get_mock_server_url())
 
 @pytest.fixture(autouse=True)
 def test_context(request) -> Generator[None, Any, None]:
@@ -130,9 +132,9 @@ def test_context(request) -> Generator[None, Any, None]:
     # Setup test context
     test_name = request.node.name
     test_start_time = datetime.now()
-    
+
     yield
-    
+
     # Handle test failure
     try:
         if hasattr(request.node, "rep_call") and request.node.rep_call.failed and Config.SCREENSHOT_ON_FAILURE:
@@ -147,10 +149,15 @@ def test_context(request) -> Generator[None, Any, None]:
     except AttributeError:
         pass  # Node does not have rep_call attribute
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, _: pytest.CallInfo) -> Generator[None, Any, pytest.TestReport]:
-    """Hook to store test results on test item for later use."""
-    outcome = yield
-    result = outcome.get_result()
-    setattr(item, f"rep_{result.when}", result)
-    return result
+# @pytest.hookimpl(tryfirst=True, hookwrapper=True)
+# def pytest_runtest_logreport(item: pytest.Item, _: pytest.CallInfo) -> Generator[None, Any, pytest.TestReport]:
+#     """Hook to store test results on test item for later use."""
+#     outcome = yield
+#     result = outcome.get_result()
+#     setattr(item, f"rep_{result.when}", result)
+#     return result
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_logreport(report):
+        """Hook to store test results on test item for later use."""
+        setattr(report.node, f"rep_{report.when}", report)
