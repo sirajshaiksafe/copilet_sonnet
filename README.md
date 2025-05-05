@@ -28,7 +28,7 @@ source venv/bin/activate
 
 3. Install required packages:
 ```bash
-pip install playwright pytest pytest-playwright pytest-xdist pytest-html allure-pytest pytest-bdd requests pytest-mock pytest-timeout pytest-benchmark opencv-python pytest-check pytest-reportportal deepdiff aiohttp pytest-asyncio pytest-cov robotframework-requests pytest-metadata pymongo
+pip install playwright pytest pytest-playwright pytest-xdist pytest-html allure-pytest pytest-bdd requests pytest-mock pytest-timeout pytest-benchmark opencv-python pytest-check pytest-reportportal deepdiff aiohttp pytest-asyncio pytest-cov robotframework-requests pytest-metadata pymongo pillow setuptools 
 
 pip install pillow setuptools 
 ```
