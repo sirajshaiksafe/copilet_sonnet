@@ -12,6 +12,10 @@ from utils.env_manager import env_manager
 from utils.test_matrix import get_active_matrix
 
 
+# Global flag to activate matrix testing automatically
+AUTO_USE_MATRIX = True  # Set to True to always use the matrix
+
+
 def pytest_addoption(parser):
     """Add command-line options for environment and browser selection"""
     parser.addoption(
@@ -38,13 +42,28 @@ def pytest_addoption(parser):
     parser.addoption(
         "--matrix", 
         action="store_true", 
-        default=False,
+        default=AUTO_USE_MATRIX,  # Default to AUTO_USE_MATRIX setting
         help="Run tests on all active browser/device combinations defined in test matrix"
+    )
+    
+    parser.addoption(
+        "--skip-matrix", 
+        action="store_true", 
+        default=False,
+        help="Skip matrix testing even if it's enabled by default"
     )
 
 
 def pytest_configure(config):
     """Configure the test environment based on command line options"""
+    # Handle matrix configuration
+    use_matrix = config.getoption("--matrix")
+    skip_matrix = config.getoption("--skip-matrix")
+    
+    if skip_matrix:
+        # Force disable matrix if --skip-matrix is specified
+        config.option.matrix = False
+    
     # Set environment based on command line option
     env = config.getoption("--env").upper()
     if env not in ["DEV", "SYS", "QA"]:
@@ -74,14 +93,22 @@ def pytest_configure(config):
         if device_name:
             print(f"Device: {device_name}")
         print("\n")
+    else:
+        # Print matrix info
+        matrix = get_active_matrix()
+        print(f"\nRunning tests with matrix against {env} environment: {Config.get_environment_url()}")
+        print(f"Active matrix ({len(matrix)} combinations):")
+        for combo in matrix:
+            print(f"  - {combo['name']}: Browser: {combo['browser_type']}, Device: {combo['mobile_device'] or 'Desktop'}")
+        print("\n")
 
 
 def pytest_generate_tests(metafunc):
     """
     Generate tests for each browser/device combination in the active matrix
-    when --matrix flag is used
+    when matrix testing is enabled
     """
-    # Only apply matrix if the flag is set
+    # Apply matrix if it's active based on default or commandline
     if metafunc.config.getoption("--matrix"):
         # Get active matrix combinations
         active_matrix = get_active_matrix()
